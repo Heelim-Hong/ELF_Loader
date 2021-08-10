@@ -43,6 +43,8 @@
 
 int8_t *sp, *stack_top;
 int8_t *arg_start, *arg_end, *envp_start, *envp_end;
+
+Elf64_Ehdr elf_header;
 int fd; 
 
 int create_elf_tables(int argc, char *envp[], Elf64_Ehdr *ep)
@@ -283,9 +285,16 @@ void segv_handler(int sig, siginfo_t *si, void *context)
 //	fprintf(stderr, "fault at %p\n", info->si_addr);
 	printf("SIGSEGV at address: %p\n", (void*) si->si_addr);
 
+	for (i = 0; i < elf_header.e_phnum; i++) {
+		lseek(fd, elf_header.e_phoff + i * sizeof(Elf64_Phdr), SEEK_SET); 
 
-	for (i = 0; i < PH_TABLE_SIZE; i++) {
-		pp = &ph_table[i];
+		memset(pp, 0, sizeof(Elf64_Phdr*));
+		if(read(fd, pp, sizeof(Elf64_Phdr*)) <0)
+		{
+			printf("Read error on Phdr\n"); 
+			return -1; 
+		}
+		// pp = &ph_table[i];
 		Elf64_Addr k;
 		if (pp->p_type != PT_LOAD)
 			continue;
@@ -320,7 +329,7 @@ void segv_handler(int sig, siginfo_t *si, void *context)
 			padzero(elf_bss);
 	}
 	else {
-		if (map_bss(addr, elf_prot) < 0) {
+		if (map_bss(addr, elf_prot,0) < 0) {
             printf("bss map error\n");
 			exit(EXIT_FAILURE);
 		}
@@ -329,7 +338,7 @@ void segv_handler(int sig, siginfo_t *si, void *context)
 
 int main(int argc, char *argv[], char *envp[])
 {
-	Elf64_Ehdr elf_header;
+	// Elf64_Ehdr elf_header;
 	Elf64_auxv_t *auxv;
 	Elf64_Addr loader_entry;
 	char **p;
