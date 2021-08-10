@@ -42,7 +42,8 @@ int main(int argc, char* argv[])
 		for(unsigned i = 0; i < SIZE; ++i)
 		{
 			s.data[i] = i;
-			printf("%u\n", i);
+			// printf("%u\n", i);
+			printf("%d\n", s.data[i]);
 		}
 	}
 	gettimeofday(&end_time, NULL);
