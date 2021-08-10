@@ -1,23 +1,3 @@
-// #include <stdio.h>
-
-// void main(int argc, char *argv[], char *envp[])
-// {
-// 	printf("Hello World %d %s\n", argc, argv[0]);
-// }
-
-
-// #include <stdio.h>
-// #include <stdlib.h>
-
-// int global_bss;
-// int global_data = 10;
-
-// void print() {
-// 	printf("----------------------------------------------\n");
-// 	printf("call print()\n");
-// 	printf("----------------------------------------------\n");
-// }
-
 // int main(int argc, char *argv[]) {
 // 	int local = 0;
 
@@ -35,29 +15,6 @@
 // 	print();
 
 // 	exit(0);
-// }
-
-
-// #include <stdio.h>
-
-// int main(int argc, char *argv[])
-// {
-// 	int x, y, z;
-	
-// 	x = 1;
-// 	y = 2;
-// 	z = 3;
-
-// 	printf("This is a test programm\n");
-// 	printf("x: %d\n", x);
-// 	printf("y: %d\n", y);
-// 	printf("z: %d\n", z);
-// 	printf("argc: %d\n", argc);
-
-// 	for (int i = 0; i < argc; i++) 
-// 		printf("%s \n", argv[i]);
-
-// 	return 0;
 // }
 
 #include <stdio.h>

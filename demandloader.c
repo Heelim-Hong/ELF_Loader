@@ -333,7 +333,7 @@ void signal_handler(int sig, siginfo_t *si, void *unused)
 	Elf64_Phdr *pp;
 	int i;
 
-	printf("SIGSEGV at address: %p\n", (void*) si->si_addr);
+	// printf("SIGSEGV at address: %p\n", (void*) si->si_addr);
 
 	for (i = 0; i < PH_TABLE_SIZE; i++) {
 		pp = &ph_table[i];

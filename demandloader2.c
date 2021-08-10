@@ -282,8 +282,7 @@ void segv_handler(int sig, siginfo_t *si, void *context)
 	Elf64_Phdr *pp;
 	int i;
 
-//	fprintf(stderr, "fault at %p\n", info->si_addr);
-	printf("SIGSEGV at address: %p\n", (void*) si->si_addr);
+	// printf("SIGSEGV at address: %p\n", (void*) si->si_addr);
 
 	for (i = 0; i < elf_header.e_phnum; i++) {
 		lseek(fd, elf_header.e_phoff + i * sizeof(Elf64_Phdr), SEEK_SET); 
