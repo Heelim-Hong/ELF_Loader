@@ -42,9 +42,9 @@
 int8_t *sp, *stack_top;
 int8_t *arg_start, *arg_end, *envp_start, *envp_end;
 
+// setting up the stack 
 int create_elf_tables(int argc, char *envp[], Elf64_Ehdr *ep)
-{   // setting up the stack 
-    
+{   
 	int items, envc = 0;
 	int i;
 	int8_t *p;
@@ -123,19 +123,22 @@ int create_elf_tables(int argc, char *envp[], Elf64_Ehdr *ep)
 	return 0;
 }
 
+// fs/binfmt_elf.c set_brk()
 int map_bss(unsigned long start, unsigned long end, int prot)
-{   // fs/binfmt_elf.c set_brk()
+{   
 	start = ELF_PAGEALIGN(start);
 	end = ELF_PAGEALIGN(end);
     // Map anonymous pages, if needed, and clear the area
+	size_t size = end - start; 
 	if (end > start) {
-		return (int) mmap((void *) start, end - start, prot, MAP_FIXED | MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+		return (int) mmap((void *) start, size, prot, MAP_FIXED | MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	}
 	return 0;
 }
 
+// fs/binfmt_elf.c
 void *elf_map(Elf64_Addr addr, int prot, int type, int fd, Elf64_Phdr *eppnt)
-{   // fs/binfmt_elf.c
+{   
 	unsigned long size = eppnt->p_filesz + ELF_PAGEOFFSET(eppnt->p_vaddr);
 	unsigned long off = eppnt->p_offset - ELF_PAGEOFFSET(eppnt->p_vaddr);
 	addr = ELF_PAGESTART(addr);
@@ -149,9 +152,9 @@ void *elf_map(Elf64_Addr addr, int prot, int type, int fd, Elf64_Phdr *eppnt)
 	return mmap((void *) addr, size, prot, type, fd, off);
 }
 
+// linux/fs/binfmt_elf.c
 int padzero(unsigned long elf_bss)
-{   // linux/fs/binfmt_elf.c 
-
+{    
 	unsigned long nbyte;
 
 	nbyte = ELF_PAGEOFFSET(elf_bss);
@@ -165,7 +168,7 @@ int padzero(unsigned long elf_bss)
 int load_elf_binary(int fd, Elf64_Ehdr *ep, int argc, char *envp[])
 {
 	Elf64_Phdr phdr;
-	Elf64_Addr elf_entry;
+	Elf64_Addr entry;
 	unsigned long elf_bss, elf_brk;
 	int bss_prot = 0;
 	int i;
@@ -235,7 +238,7 @@ int load_elf_binary(int fd, Elf64_Ehdr *ep, int argc, char *envp[])
 	if (elf_bss != elf_brk)
 		padzero(elf_bss);
 
-	elf_entry = ep->e_entry;
+	entry = ep->e_entry;
 
     // Setting up the rest of its stack(in its new randomized loacation)
 	create_elf_tables(argc, envp, ep);
@@ -251,7 +254,7 @@ int load_elf_binary(int fd, Elf64_Ehdr *ep, int argc, char *envp[])
 	asm("movq $0, %rdx"); // rdx : data register 
 	asm("movq %0, %%rsp" : : "r" (stack_top)); // rsp : stack pointer register
     /* Jump to test program transferring control to the entry point via jmp instruction */ 
-	asm("jmp *%0" : : "c" (elf_entry)); 
+	asm("jmp *%0" : : "c" (entry)); 
 	printf("never reached\n");
 
 	return 0;
@@ -284,18 +287,18 @@ int main(int argc, char *argv[], char *envp[])
 
 	if ((fd = open(argv[1], O_RDWR)) < 0) {
         printf("File open failed\n"); 
-		goto out;
+		exit(EXIT_FAILURE);
 	}
     
     // Read the ELF header
 	if (read(fd, &elf_header, sizeof(Elf64_Ehdr)) < 0) {
         printf("Read Error\n"); 
-		goto out;
+		exit(EXIT_FAILURE);
 	}
 
 	if (memcmp(&elf_header, ELFMAG, SELFMAG) != 0) {
         printf("File format error\n");
-		goto out;
+		exit(EXIT_FAILURE);
 	}
 
 	// Check whether entry point is overlapped with loaded program
@@ -310,7 +313,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (elf_header.e_entry == loader_entry) {
         printf("Entry point is overlapped\n"); 
-		goto out;
+		exit(EXIT_FAILURE);
 	}
 
 	// show_elf_header(&elf_header);
@@ -365,10 +368,6 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	load_elf_binary(fd, &elf_header, argc, envp);
-
-out:
-	close(fd);
-	exit(EXIT_FAILURE);
 }
 
 

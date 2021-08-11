@@ -135,9 +135,10 @@ int map_bss(unsigned long start, unsigned long end, int prot)
 {   
 	start = ELF_PAGEALIGN(start);
 	end = ELF_PAGEALIGN(end);
+	size_t size = end - start; 
     // Map anonymous pages, if needed, and clear the area
 	if (end > start) {
-		return (int) mmap((void *) start, end - start, prot, MAP_FIXED | MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+		return (int) mmap((void *) start, size, prot, MAP_FIXED | MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	}
 	return 0;
 }
@@ -173,12 +174,11 @@ int padzero(unsigned long elf_bss)
 int load_elf_binary(int fd, Elf64_Ehdr *ep, int argc, char *envp[])
 {
 	Elf64_Phdr phdr;
-	Elf64_Addr elf_entry;
+	Elf64_Addr entry;
 	unsigned long elf_bss, elf_brk;
 	int bss_prot = 0;
 	int i;
 
-	// lseek(fd, ep->e_phoff, SEEK_SET);
 	elf_bss = 0;
 	elf_brk = 0;
 	for (i = 0; i < ep->e_phnum; i++) {
@@ -242,7 +242,7 @@ int load_elf_binary(int fd, Elf64_Ehdr *ep, int argc, char *envp[])
 	if (elf_bss != elf_brk)
 		padzero(elf_bss);
 
-	elf_entry = ep->e_entry;
+	entry = ep->e_entry;
 
     // Setting up the rest of its stack(in its new randomized loacation)
 	create_elf_tables(argc, envp, ep);
@@ -258,7 +258,7 @@ int load_elf_binary(int fd, Elf64_Ehdr *ep, int argc, char *envp[])
 	asm("movq $0, %rdx"); // rdx : data register 
 	asm("movq %0, %%rsp" : : "r" (stack_top)); // rsp : stack pointer register
     /* Jump to test program transferring control to the entry point via jmp instruction */ 
-	asm("jmp *%0" : : "c" (elf_entry)); 
+	asm("jmp *%0" : : "c" (entry)); 
 	printf("never reached\n");
 
 	return 0;
@@ -282,7 +282,7 @@ void signal_handler(int sig, siginfo_t *si, void *context)
 	int elf_brk = 0, elf_bss = 0;
 	int elf_prot = 0, elf_flags;
 	Elf64_Addr addr = (Elf64_Addr) si->si_addr;
-	Elf64_Phdr *pp;
+	Elf64_Phdr *ph;
 	int i;
 	int bss_prot = 0; 
 
@@ -291,22 +291,22 @@ void signal_handler(int sig, siginfo_t *si, void *context)
 	for (i = 0; i < elf_header.e_phnum; i++) {
 		lseek(fd, elf_header.e_phoff + i * sizeof(Elf64_Phdr), SEEK_SET); 
 
-		memset(pp, 0, sizeof(Elf64_Phdr*));
-		if(read(fd, pp, sizeof(Elf64_Phdr*)) <0)
+		memset(ph, 0, sizeof(Elf64_Phdr*));
+		if(read(fd, ph, sizeof(Elf64_Phdr*)) <0)
 		{
 			printf("Read error on Phdr\n"); 
 			return -1; 
 		}
 		// pp = &ph_table[i];
 		Elf64_Addr k;
-		if (pp->p_type != PT_LOAD)
+		if (ph->p_type != PT_LOAD)
 			continue;
 
-		if ((pp->p_vaddr <= addr) && addr <= (pp->p_vaddr + pp->p_memsz)) {
+		if ((ph->p_vaddr <= addr) && addr <= (ph->p_vaddr + ph->p_memsz)) {
 			is_feasible = true;
-			k = pp->p_vaddr + pp->p_filesz;
+			k = ph->p_vaddr + ph->p_filesz;
 			elf_bss = k;
-			k = pp->p_vaddr + pp->p_memsz;
+			k = ph->p_vaddr + ph->p_memsz;
 			elf_brk = k;
 			break;
 		}
@@ -317,13 +317,13 @@ void signal_handler(int sig, siginfo_t *si, void *context)
 		exit(EXIT_FAILURE);
 	}
 
-	if (pp->p_flags & PF_R) elf_prot |= PROT_READ;
-	if (pp->p_flags & PF_W) elf_prot |= PROT_WRITE;
-	if (pp->p_flags & PF_X) elf_prot |= PROT_EXEC;
+	if (ph->p_flags & PF_R) elf_prot |= PROT_READ;
+	if (ph->p_flags & PF_W) elf_prot |= PROT_WRITE;
+	if (ph->p_flags & PF_X) elf_prot |= PROT_EXEC;
 
-	if ((pp->p_vaddr <= addr) && (addr <= pp->p_vaddr + pp->p_filesz) ||
+	if ((ph->p_vaddr <= addr) && (addr <= ph->p_vaddr + ph->p_filesz) ||
 		(ELF_PAGEALIGN(elf_bss) == ELF_PAGEALIGN(addr))) {
-		if (elf_map(addr, elf_prot, MAP_PRIVATE | MAP_FIXED | MAP_EXECUTABLE, fd, pp) < 0) {
+		if (elf_map(addr, elf_prot, MAP_PRIVATE | MAP_FIXED | MAP_EXECUTABLE, fd, ph) < 0) {
             printf("elf_map error\n");
 			exit(EXIT_FAILURE);
 		}
@@ -355,18 +355,19 @@ int main(int argc, char *argv[], char *envp[])
 
 	if ((fd = open(argv[1], O_RDWR)) < 0) {
         printf("File open failed\n"); 
-		goto out;
+		exit(EXIT_FAILURE);
+
 	}
     
     // Read the ELF header
 	if (read(fd, &elf_header, sizeof(Elf64_Ehdr)) < 0) {
         printf("Read Error\n"); 
-		goto out;
+		exit(EXIT_FAILURE);
 	}
 
 	if (memcmp(&elf_header, ELFMAG, SELFMAG) != 0) {
         printf("File format error\n");
-		goto out;
+		exit(EXIT_FAILURE);
 	}
 
 	// Check whether entry point is overlapped with loaded program
@@ -381,7 +382,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (elf_header.e_entry == loader_entry) {
         printf("Entry point is overlapped\n"); 
-		goto out;
+		exit(EXIT_FAILURE);
 	}
 
 	// show_elf_header(&elf_header);
@@ -448,10 +449,6 @@ int main(int argc, char *argv[], char *envp[])
 	} 
 
 	load_elf_binary(fd, &elf_header, argc, envp);
-
-out:
-	close(fd);
-	exit(EXIT_FAILURE);
 }
 
 

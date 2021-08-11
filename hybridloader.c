@@ -51,7 +51,6 @@ int fd;
 // setting up the stack
 int create_elf_tables(int argc, char *envp[], Elf64_Ehdr *ep)
 {    
-    
 	int items, envc = 0;
 	int i;
 	int8_t *p;
@@ -99,45 +98,29 @@ int create_elf_tables(int argc, char *envp[], Elf64_Ehdr *ep)
 
 	// Populate list of argv pointers back to argv strings. 
 	p = arg_start;
-    // while(--argc)
-    // {
-    //     size_t len; 
+    while(--argc)
+    {
+        size_t len; 
 
-    //     *((unsigned long *) sp) = (unsigned long) p; 
-    //     len = strnlen(p, MAX_ARG_STRLEN); 
-    //     sp += 8; 
-    //     p += len+1;
-    // }
-    for (i = 0; i < argc - 1; i++) {
-		size_t len;
-
-		*((unsigned long *) sp) = (unsigned long) p;
-		len = strnlen(p, MAX_ARG_STRLEN);
-		sp += 8;
-		p += len + 1;
-	}
+        *((unsigned long *) sp) = (unsigned long) p; 
+        len = strnlen(p, MAX_ARG_STRLEN); 
+        sp += 8; 
+        p += len+1;
+    }
 	*((unsigned long *) sp) = NULL;
 	sp += 8;
 
 	// Populate list of envp pointers back to envp strings.
 	p = envp_start;
-    // while(envc --)
-    // {
-    //     size_t len;
-
-	// 	*((unsigned long *) sp) = (unsigned long) p;
-	// 	len = strnlen(p, MAX_ARG_STRLEN);
-	// 	sp += 8;
-	// 	p += len;
-    // }
-    for (i = 0; i < envc; i++) {
-		size_t len;
+    while(envc --)
+    {
+        size_t len;
 
 		*((unsigned long *) sp) = (unsigned long) p;
 		len = strnlen(p, MAX_ARG_STRLEN);
 		sp += 8;
 		p += len;
-	}
+    }
 	*((unsigned long *) sp) = NULL;
 	sp += 8;
 
@@ -148,27 +131,18 @@ int create_elf_tables(int argc, char *envp[], Elf64_Ehdr *ep)
 }
 
 // fs/binfmt_elf.c set_brk()
-// int map_bss(unsigned long start, unsigned long end, int prot)
-// {   
-// 	start = ELF_PAGEALIGN(start);
-// 	end = ELF_PAGEALIGN(end);
-//     // Map anonymous pages, if needed, and clear the area
-// 	if (end > start) {
-// 		return (int) mmap((void *) start, end - start, prot, MAP_FIXED | MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-// 	}
-// 	return 0;
-// }
-
 int map_bss(unsigned long addr, int prot, int page_num)
 {
     int flags; 
     addr = ELF_PAGESTART(addr); 
+    size_t size = page_num * PAGE_SIZE; 
 
-    return (int) mmap((void *) addr, page_num * PAGE_SIZE, prot, MAP_FIXED | MAP_ANONYMOUS | MAP_PRIVATE, -1, 0); 
+    return (int) mmap((void *) addr, size, prot, MAP_FIXED | MAP_ANONYMOUS | MAP_PRIVATE, -1, 0); 
 }
 
+// fs/binfmt_elf.c
 void *elf_map(Elf64_Addr addr, int prot, int type, int fd, Elf64_Phdr *eppnt)
-{   // fs/binfmt_elf.c
+{   
 	unsigned long size = eppnt->p_filesz + ELF_PAGEOFFSET(eppnt->p_vaddr);
 	unsigned long off = eppnt->p_offset - ELF_PAGEOFFSET(eppnt->p_vaddr);
 	addr = ELF_PAGESTART(addr);
@@ -182,9 +156,9 @@ void *elf_map(Elf64_Addr addr, int prot, int type, int fd, Elf64_Phdr *eppnt)
 	return mmap((void *) addr, size, prot, type, fd, off);
 }
 
+// linux/fs/binfmt_elf.c
 int padzero(unsigned long elf_bss)
-{   // linux/fs/binfmt_elf.c 
-
+{    
 	unsigned long nbyte;
 
 	nbyte = ELF_PAGEOFFSET(elf_bss);
@@ -198,7 +172,7 @@ int padzero(unsigned long elf_bss)
 int load_elf_binary(int fd, Elf64_Ehdr *ep, int argc, char *envp[])
 {
 	// Elf64_Phdr phdr;
-	Elf64_Addr elf_entry;
+	Elf64_Addr entry;
 	unsigned long elf_bss, elf_brk;
 	int bss_prot = 0;
 	int i;
@@ -233,7 +207,7 @@ int load_elf_binary(int fd, Elf64_Ehdr *ep, int argc, char *envp[])
 		vaddr = ph_table[i].p_vaddr;
 
 		if (elf_map(vaddr, elf_prot, MAP_PRIVATE | MAP_FIXED | MAP_EXECUTABLE, fd, &ph_table[i]) < 0) {
-			fprintf(stderr, "elf_map error\n");
+            printf("Elf map error\n");
 			return -1;
 		}
 
@@ -251,7 +225,7 @@ int load_elf_binary(int fd, Elf64_Ehdr *ep, int argc, char *envp[])
 	if (elf_bss != elf_brk)
 		padzero(elf_bss);
 
-	elf_entry = ep->e_entry;
+	entry = ep->e_entry;
 
     // Setting up the rest of its stack(in its new randomized loacation)
 	create_elf_tables(argc, envp, ep);
@@ -267,7 +241,7 @@ int load_elf_binary(int fd, Elf64_Ehdr *ep, int argc, char *envp[])
 	asm("movq $0, %rdx"); // rdx : data register 
 	asm("movq %0, %%rsp" : : "r" (stack_top)); // rsp : stack pointer register
     /* Jump to test program transferring control to the entry point via jmp instruction */ 
-	asm("jmp *%0" : : "c" (elf_entry)); 
+	asm("jmp *%0" : : "c" (entry)); 
 	printf("never reached\n");
 
 	return 0;
@@ -285,44 +259,41 @@ void show_elf_header(Elf64_Ehdr *ep)
 	printf("e_phnum: %u\n", ep->e_phnum);
 }
 
-void signal_handler(int sig, siginfo_t *si, void *context)
+void signal_handler(int sig, siginfo_t *si, void *unused)
 {
 	bool is_feasible = false;
 	// int elf_brk = 0, elf_bss = 0;
 	// int elf_prot = 0, elf_flags;
     int elf_prot = 0; 
 	Elf64_Addr addr = (Elf64_Addr) si->si_addr;
-	Elf64_Phdr *pp;
+	Elf64_Phdr *ph;
 	int i;
 
 	// printf("SIGSEGV at address: %p\n", (void*) si->si_addr);
 
 	for (i = 0; i < PH_TABLE_SIZE; i++) {
-		pp = &ph_table[i];
-		if (pp->p_type != PT_LOAD)
+		ph = &ph_table[i];
+		if (ph->p_type != PT_LOAD)
 			continue;
 
-		if ((pp->p_vaddr <= addr) && addr <= (pp->p_vaddr + pp->p_memsz)) {
+		if ((ph->p_vaddr <= addr) && addr <= (ph->p_vaddr + ph->p_memsz)) {
 			is_feasible = true;
 			break;
 		}
 	}
 
 	if (!is_feasible) {
-		fprintf(stderr, "Unvalid memory reference\n");
+        printf("Unvalid memory reference\n");
 		exit(EXIT_FAILURE);
 	}
 
-	if (pp->p_flags & PF_R)
-		elf_prot |= PROT_READ;
-	if (pp->p_flags & PF_W)
-		elf_prot |= PROT_WRITE;
-	if (pp->p_flags & PF_X)
-		elf_prot |= PROT_EXEC;
+	if (ph->p_flags & PF_R) elf_prot |= PROT_READ;
+	if (ph->p_flags & PF_W) elf_prot |= PROT_WRITE;
+	if (ph->p_flags & PF_X) elf_prot |= PROT_EXEC;
 
 	int page_num = 1;
 
-	if (ELF_PAGEALIGN(addr) < pp->p_vaddr + pp->p_memsz)
+	if (ELF_PAGEALIGN(addr) < ph->p_vaddr + ph->p_memsz)
 		page_num++;
 
 	if (map_bss(addr, elf_prot, page_num) < 0) {
@@ -347,18 +318,21 @@ int main(int argc, char *argv[], char *envp[])
 
 	if ((fd = open(argv[1], O_RDWR)) < 0) {
         printf("File open failed\n"); 
-		goto out;
+		// goto out;
+		exit(EXIT_FAILURE);
 	}
     
     // Read the ELF header
 	if (read(fd, &elf_header, sizeof(Elf64_Ehdr)) < 0) {
         printf("Read Error\n"); 
-		goto out;
+		// goto out;
+		exit(EXIT_FAILURE);
 	}
 
 	if (memcmp(&elf_header, ELFMAG, SELFMAG) != 0) {
         printf("File format error\n");
-		goto out;
+		// goto out;
+		exit(EXIT_FAILURE);
 	}
 
 	// Check whether entry point is overlapped with loaded program
@@ -373,7 +347,8 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (elf_header.e_entry == loader_entry) {
         printf("Entry point is overlapped\n"); 
-		goto out;
+		exit(EXIT_FAILURE);
+		// goto out;
 	}
 
 	// show_elf_header(&elf_header);
@@ -442,9 +417,9 @@ int main(int argc, char *argv[], char *envp[])
 
 	load_elf_binary(fd, &elf_header, argc, envp);
 
-out:
-	close(fd);
-	exit(EXIT_FAILURE);
+// out:
+// 	close(fd);
+// 	exit(EXIT_FAILURE);
 }
 
 
