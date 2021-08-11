@@ -47,8 +47,9 @@ int8_t *arg_start, *arg_end, *envp_start, *envp_end;
 Elf64_Ehdr elf_header;
 int fd; 
 
+// setting up the stack
 int create_elf_tables(int argc, char *envp[], Elf64_Ehdr *ep)
-{   // setting up the stack 
+{    
     
 	int items, envc = 0;
 	int i;
@@ -63,6 +64,7 @@ int create_elf_tables(int argc, char *envp[], Elf64_Ehdr *ep)
      * evictions by the processes running on the saem package, One
      * thing we can do is to shuffle the initial stack for them. 
      */ 
+	// Rounds down the existing stack position to a 16-byte boundary
 	sp = (int8_t *) arch_align_stack(sp);
 
 	// Copy Loaders AT_VECTOR 
@@ -128,8 +130,9 @@ int create_elf_tables(int argc, char *envp[], Elf64_Ehdr *ep)
 	return 0;
 }
 
+// fs/binfmt_elf.c set_brk()
 int map_bss(unsigned long start, unsigned long end, int prot)
-{   // fs/binfmt_elf.c set_brk()
+{   
 	start = ELF_PAGEALIGN(start);
 	end = ELF_PAGEALIGN(end);
     // Map anonymous pages, if needed, and clear the area
@@ -273,7 +276,7 @@ void show_elf_header(Elf64_Ehdr *ep)
 	printf("e_phnum: %u\n", ep->e_phnum);
 }
 
-void segv_handler(int sig, siginfo_t *si, void *context)
+void signal_handler(int sig, siginfo_t *si, void *context)
 {
 	bool is_feasible = false;
 	int elf_brk = 0, elf_bss = 0;
@@ -281,6 +284,7 @@ void segv_handler(int sig, siginfo_t *si, void *context)
 	Elf64_Addr addr = (Elf64_Addr) si->si_addr;
 	Elf64_Phdr *pp;
 	int i;
+	int bss_prot = 0; 
 
 	// printf("SIGSEGV at address: %p\n", (void*) si->si_addr);
 
@@ -328,7 +332,7 @@ void segv_handler(int sig, siginfo_t *si, void *context)
 			padzero(elf_bss);
 	}
 	else {
-		if (map_bss(addr, elf_prot,0) < 0) {
+		if (map_bss(elf_bss, elf_brk, bss_prot) < 0) {
             printf("bss map error\n");
 			exit(EXIT_FAILURE);
 		}
@@ -342,7 +346,7 @@ int main(int argc, char *argv[], char *envp[])
 	Elf64_Addr loader_entry;
 	char **p;
 	// int fd;
-    struct sigaction act; 
+    struct sigaction sig; 
 
 	if (argc < 2) {
         printf("./loader exe_file\n"); 
@@ -431,10 +435,17 @@ int main(int argc, char *argv[], char *envp[])
 		memcpy(sp, argv[i], len + 1);
 	}
 
-    memset(&act, 0, sizeof(act));
-	act.sa_handler = segv_handler;
-	act.sa_flags = SA_SIGINFO | SA_RESTART;
-	sigaction(SIGSEGV, &act, NULL);
+	// assign the new handler for SIGSEGV
+	memset(&sig, 0, sizeof(sig)); 
+	sig.sa_flags = SA_SIGINFO | SA_RESTART; 
+	// sigemptyset(&sig.sa_mask);
+	// sig.sa_sigaction = signal_handler;
+	sig.sa_handler = signal_handler; 
+	if(sigaction(SIGSEGV, &sig, NULL) == -1)
+	{ 
+		printf("SIGACTION FAILURE\n");
+		exit(EXIT_FAILURE);
+	} 
 
 	load_elf_binary(fd, &elf_header, argc, envp);
 

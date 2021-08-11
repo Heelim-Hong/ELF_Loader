@@ -1,7 +1,7 @@
 OPTION = -Wall -Wl,-Ttext-segment=0x30000000
 OPTION2 = -Wall -Wextra -g 
 
-all : loader demandloader demandloader2 test1 test2 test3
+all : loader demandloader demandloader2 test
 
 loader : loader.o
 	gcc $(OPTION) -o loader $<
@@ -21,10 +21,13 @@ demandloader2 : demandloader2.o
 demandloader2.o : demandloader2.c
 	gcc $(OPTION2) -c $<
 
-test1: test1.c 
+test: 
 	gcc test1.c -o test1 -static
 	gcc test2.c -o test2 -static
 	gcc test3.c -o test3 -static
+	gcc test4.c -o test4 -static
+	gcc test5.c -o test5 -static
+	gcc test6.c -o test6 -static
 
 clean:
 	rm -f loader.o
@@ -36,5 +39,10 @@ clean:
 	rm -f test1
 	rm -f test2
 	rm -f test3
+	rm -f test4
+	rm -f test5
+	rm -f test6
+
+
 
 
