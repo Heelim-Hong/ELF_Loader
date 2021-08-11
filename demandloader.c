@@ -63,7 +63,7 @@ int create_elf_tables(int argc, char *envp[], Elf64_Ehdr *ep)
        evictions by the processes running on the saem package, One
        thing we can do is to shuffle the initial stack for them. 
     */ 
-    // Rounds down the existing stack position to a 16-byte bounday
+    // Rounds down the existing stack position to a 16-byte boundary
 	sp = (int8_t *) arch_align_stack(sp);
 
 	// Copy Loaders AT_VECTOR 
@@ -154,6 +154,7 @@ int create_elf_tables(int argc, char *envp[], Elf64_Ehdr *ep)
 	return 0;
 }
 
+// fs/binfmt_elf.c set_brk()
 int map_bss(unsigned long addr, int prot)
 {   
 	int flags; 
