@@ -4,7 +4,7 @@ CC=gcc
 CFLAGS = -Wall -Wl,-Ttext-segment=0x30000000
 CFLAGS2 = -Wall -Wextra -g 
 
-all : loader demandloader demandloader2 hybridloader test
+all : loader demandloader2 hybridloader test
 
 loader : loader.o
 	gcc $(CFLAGS) -o loader $<
