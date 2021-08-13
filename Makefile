@@ -9,12 +9,6 @@ loader : loader.o
 loader.o : loader.c
 	gcc $(OPTION2) -c $<
 
-demandloader : demandloader.o
-	gcc $(OPTION) -o demandloader $<
-
-demandloader.o : demandloader.c
-	gcc $(OPTION2) -c $<
-
 demandloader2 : demandloader2.o
 	gcc $(OPTION) -o demandloader2 $<
 
@@ -38,8 +32,6 @@ test:
 clean:
 	rm -f loader.o
 	rm -f loader
-	rm -f demandloader.o
-	rm -f demandloader
 	rm -f demandloader2.o
 	rm -f demandloader2
 	rm -f hybridloader.o 
