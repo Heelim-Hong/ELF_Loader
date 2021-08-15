@@ -39,7 +39,6 @@
 		sp -= len;             \
 		sp;                    \
 	})
-
 /* include/asm/exec.h */
 #define arch_align_stack(p) ((unsigned long)(p) & ~0xf)
 
@@ -327,21 +326,22 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	// Check whether entry point is overlapped with loaded program
-	/*
 	p = envp;
 	while (*p++ != NULL)
 		;
-	for (auxv = (Elf64_auxv_t *) envp; auxv->a_type != AT_NULL; auxv++) {
-		if (auxv->a_type == AT_ENTRY) {
+	for (auxv = (Elf64_auxv_t *)envp; auxv->a_type != AT_NULL; auxv++)
+	{
+		if (auxv->a_type == AT_ENTRY)
+		{
 			loader_entry = auxv->a_un.a_val;
 		}
 	}
 
-	if (elf_header.e_entry == loader_entry) {
-        printf("Entry point is overlapped\n");
+	if (elf_header.e_entry == loader_entry)
+	{
+		printf("Entry point is overlapped\n");
 		exit(EXIT_FAILURE);
 	}
-	*/
 
 	// show_elf_header(&elf_header);
 
