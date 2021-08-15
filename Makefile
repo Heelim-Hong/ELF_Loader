@@ -12,10 +12,10 @@ loader : loader.o
 loader.o : loader.c
 	gcc $(CFLAGS2) -c $<
 
-demandloader2 : demandloader2.o
-	gcc $(CFLAGS) -o demandloader2 $<
+demandloader : demandloader.o
+	gcc $(CFLAGS) -o demandloader $<
 
-demandloader2.o : demandloader2.c
+demandloader.o : demandloader.c
 	gcc $(CFLAGS2) -c $<
 
 hybridloader : hybridloader.o
@@ -31,8 +31,8 @@ test:
 clean:
 	rm -f loader.o
 	rm -f loader
-	rm -f demandloader2.o
-	rm -f demandloader2
+	rm -f demandloader.o
+	rm -f demandloader
 	rm -f hybridloader.o 
 	rm -f hybridloader
 	rm -f test1
