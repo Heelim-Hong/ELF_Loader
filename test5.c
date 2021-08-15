@@ -1,34 +1,31 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <sys/resource.h>
-#include <time.h>
 
-#define SIZE 10000
+int q;
+int t;
+int c = 3;
+double d;
 
-unsigned int a[SIZE][SIZE];
-
-int main()
+int add(int a, int b)
 {
-    srand(time(NULL));
-    for (int j = SIZE - 1; j >= 0; j--)
-    {
-        for (int i = SIZE - 1; i >= 0; i--)
-        {
-            a[i][j] = rand();
-        }
-    }
-    unsigned int result = 0;
-    for (int j = SIZE - 1; j >= 0; j--)
-    {
-        for (int i = SIZE - 1; i >= 0; i--)
-        {
-            result ^= a[i][j];
-        }
-    }
-    printf("result = 0x%x\n", result);
-    struct rusage r_usage;
-    getrusage(RUSAGE_SELF, &r_usage);
-    // Print the maximum resident set size used (in kilobytes).
-    printf("Memory usage: %ld kilobytes\n", r_usage.ru_maxrss);
+    static int time;
+
+    time++;
+    printf("Numbers are added together\n");
+
+    return a + b;
+}
+
+int main(void)
+{
+    int a, b;
+
+    a = 3;
+    b = c + 5;
+    ;
+
+    int ret = add(a, b);
+    printf("Result: %d\n", ret);
+    printf("q: %d t: %d c: %d\n", q, t, c);
+
     return 0;
 }
