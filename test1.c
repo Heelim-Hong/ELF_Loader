@@ -1,35 +1,31 @@
 #include <stdio.h>
-#include <time.h>
-#include <sys/time.h>
-#include <stdbool.h>
 
-#define TIMES 10
-#define SIZE 10000
+int q;
+int t;
+int c = 3;
+double d;
 
-struct stuff
+int add(int a, int b)
 {
-	int data[SIZE];
-};
+	static int time;
 
-int main(int argc, char* argv[])
+	time++;
+	printf("Numbers are added together\n");
+
+	return a + b;
+}
+
+int main(void)
 {
-	struct timeval start_time;
-	struct timeval end_time;
-	gettimeofday(&start_time, NULL);
+	int a, b;
 
-	for(unsigned n = 0; n < TIMES; ++n)
-	{
-		static struct stuff s;
-		for(unsigned i = 0; i < SIZE; ++i)
-		{
-			s.data[i] = i;
-			// printf("%u\n", i);
-			printf("%d\n", s.data[i]);
-		}
-	}
-	gettimeofday(&end_time, NULL);
-	double seconds = difftime(end_time.tv_sec, start_time.tv_sec);
-	printf("%f seconds\n", seconds);
+	a = 3;
+	b = c + 5;
+	;
 
-	// while(true);
+	int ret = add(a, b);
+	printf("Result: %d\n", ret);
+	printf("q: %d t: %d c: %d\n", q, t, c);
+
+	return 0;
 }

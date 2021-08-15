@@ -12,14 +12,13 @@ int main(int argc, char *argv[])
 	struct timeval end_time;
 	gettimeofday(&start_time, NULL);
 
-	printf("Load Succeed\n");
 	int *values = (int *)malloc(sizeof(int) * SIZE);
 	for (unsigned i = 0; i < SIZE; ++i)
 	{
 		values[i] = i;
-		// printf("%d\n", values[i]);
+		printf("%d\n", values[i]);
 	}
-
+	printf("Load Succeed\n");
 	gettimeofday(&end_time, NULL);
 	double seconds = difftime(end_time.tv_sec, start_time.tv_sec);
 	printf("%f seconds\n", seconds);
