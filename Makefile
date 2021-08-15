@@ -27,8 +27,6 @@ hybridloader.o : hybridloader.c
 test: 
 	gcc test1.c -o test1 -static
 	gcc test2.c -o test2 -static
-	gcc test3.c -o test3 -static
-	gcc test4.c -o test4 -static
 
 clean:
 	rm -f loader.o
@@ -39,8 +37,6 @@ clean:
 	rm -f hybridloader
 	rm -f test1
 	rm -f test2
-	rm -f test3
-	rm -f test4
 
 
 
