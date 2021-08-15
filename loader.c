@@ -326,6 +326,7 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	// Check whether entry point is overlapped with loaded program
+	/*
 	p = envp;
 	while (*p++ != NULL)
 		;
@@ -342,6 +343,7 @@ int main(int argc, char *argv[], char *envp[])
 		printf("Entry point is overlapped\n");
 		exit(EXIT_FAILURE);
 	}
+	*/
 
 	// show_elf_header(&elf_header);
 
