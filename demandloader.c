@@ -1,6 +1,6 @@
 #include <stdio.h>
-#include <stdint.h>
 #include <string.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <elf.h>
 #include <sys/stat.h>
@@ -51,7 +51,6 @@ int8_t *arg_start, *arg_end, *envp_start, *envp_end;
 Elf64_Ehdr elf_header;
 int fd;
 
-// setting up the stack
 int create_elf_tables(int argc, char *envp[], Elf64_Ehdr *ep)
 {
 
@@ -64,14 +63,9 @@ int create_elf_tables(int argc, char *envp[], Elf64_Ehdr *ep)
 
     memset(elf_info, 0, sizeof(elf_info));
 
-    /* In some cases(e.g. Hyper-Threading), we want to avoid L1
-     * evictions by the processes running on the saem package, One
-     * thing we can do is to shuffle the initial stack for them.
-     */
     // Rounds down the existing stack position to a 16-byte boundary
     sp = (int8_t *)arch_align_stack(sp);
 
-    // Copy Loaders AT_VECTOR
     while (*envp++ != NULL)
         ;
     for (auxv = (Elf64_auxv_t *)envp; auxv->a_type != AT_NULL;
@@ -88,7 +82,6 @@ int create_elf_tables(int argc, char *envp[], Elf64_Ehdr *ep)
             elf_info[ei_index].a_un.a_val = ep->e_phnum;
     }
 
-    // Advance past the AT_NULL entry.
     ei_index += 2;
     sp = (int8_t *)STACK_ADD(sp, ei_index * 2);
 
@@ -97,11 +90,9 @@ int create_elf_tables(int argc, char *envp[], Elf64_Ehdr *ep)
     sp = (int8_t *)STACK_ROUND(sp, items);
     stack_top = sp;
 
-    // Now, let's put argc (and argv, envp if appropriate) on the stack
     *((long *)sp) = (long)argc - 1;
     sp += 8;
 
-    // Populate list of argv pointers back to argv strings.
     p = arg_start;
     while (--argc)
     {
@@ -115,7 +106,6 @@ int create_elf_tables(int argc, char *envp[], Elf64_Ehdr *ep)
     *((unsigned long *)sp) = NULL;
     sp += 8;
 
-    // Populate list of envp pointers back to envp strings.
     p = envp_start;
     while (envc--)
     {
@@ -129,7 +119,6 @@ int create_elf_tables(int argc, char *envp[], Elf64_Ehdr *ep)
     *((unsigned long *)sp) = NULL;
     sp += 8;
 
-    // Put the elf_info on the stack in the right place.
     memcpy(sp, elf_info, sizeof(Elf64_auxv_t) * ei_index);
 
     return 0;
@@ -141,7 +130,6 @@ int map_bss(unsigned long start, unsigned long end, int prot)
     start = ELF_PAGEALIGN(start);
     end = ELF_PAGEALIGN(end);
     size_t size = end - start;
-    // Map anonymous pages, if needed, and clear the area
     if (end > start)
     {
         return (int)mmap((void *)start, size, prot, MAP_FIXED | MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
@@ -156,8 +144,6 @@ void *elf_map(Elf64_Addr addr, int prot, int type, int fd, Elf64_Phdr *eppnt)
     addr = ELF_PAGESTART(addr);
     size = ELF_PAGEALIGN(size);
 
-    /* mmap() will return -EINVAL if given a zero size, but a
-	 * segment with zero filesize is perfectly valid */
     if (!size)
         return (void *)addr;
 
@@ -232,17 +218,10 @@ int load_elf_binary(int fd, Elf64_Ehdr *ep, int argc, char *envp[])
             return -1;
         }
 
-        /*
-		 * Find the end of the file mapping for this phdr, and
-		 * keep track of the largest address we see for this.
-		 */
         k = phdr.p_vaddr + phdr.p_filesz;
         if (k > elf_bss)
             elf_bss = k;
-        /*
-		 * Do the same thing for the memory mapping - between
-		 * elf_bss and last_bss is the bss section.
-		 */
+
         k = phdr.p_vaddr + phdr.p_memsz;
         if (k > elf_brk)
         {
@@ -261,14 +240,8 @@ int load_elf_binary(int fd, Elf64_Ehdr *ep, int argc, char *envp[])
 
     entry = ep->e_entry;
 
-    // Setting up the rest of its stack(in its new randomized loacation)
     create_elf_tables(argc, envp, ep);
 
-    /*
-	Use inline assembly to clean up registers state
-	Zero all register contents before starting the program under test.
-	Libc checks rdx, and if it is non-zero it interprets it as a pointer during program shutdown.
-	*/
     asm("movq $0, %rax"); // rax : accumulator register
     asm("movq $0, %rbx"); // rbx : base register
     asm("movq $0, %rcx");
@@ -276,7 +249,6 @@ int load_elf_binary(int fd, Elf64_Ehdr *ep, int argc, char *envp[])
     asm("movq %0, %%rsp"
         :
         : "r"(stack_top)); // rsp : stack pointer register
-                           /* Jump to test program transferring control to the entry point via jmp instruction */
     asm("jmp *%0"
         :
         : "c"(entry));
@@ -307,8 +279,6 @@ void signal_handler(int sig, siginfo_t *si, void *context)
     int i;
     int bss_prot = 0;
 
-    // printf("SIGSEGV at address: %p\n", (void*) si->si_addr);
-
     for (i = 0; i < elf_header.e_phnum; i++)
     {
         lseek(fd, elf_header.e_phoff + i * sizeof(Elf64_Phdr), SEEK_SET);
@@ -319,7 +289,6 @@ void signal_handler(int sig, siginfo_t *si, void *context)
             printf("Read error on Phdr\n");
             return -1;
         }
-        // pp = &ph_table[i];
         Elf64_Addr k;
         if (ph->p_type != PT_LOAD)
             continue;
@@ -404,7 +373,6 @@ int main(int argc, char *argv[], char *envp[])
         exit(EXIT_FAILURE);
     }
 
-    // Check whether entry point is overlapped with loaded program
     p = envp;
     while (*p++ != NULL)
         ;
@@ -422,23 +390,6 @@ int main(int argc, char *argv[], char *envp[])
         exit(EXIT_FAILURE);
     }
 
-    // show_elf_header(&elf_header);
-
-    /* Setup stack
-     *
-     * ---------Memory limit---------
-     * NULL pointer
-     * program_filename string
-     * envp[envc-1] string
-     * ...
-     * envp[1] string
-     * envp[0] string
-     * argv[argc-1] string
-     * ...
-     * argv[1] string
-     * argv[0] string
-     * ------------------------------
-     */
     size_t len;
     int i;
 
@@ -450,10 +401,9 @@ int main(int argc, char *argv[], char *envp[])
     }
     memset(sp, 0, STACK_SIZE);
     sp = (Elf64_Addr)STACK_TOP;
-    // NULL pointer
+
     STACK_ADD(sp, 1);
 
-    // push env to stack
     len = strnlen("ENVVAR2=2", MAX_ARG_STRLEN);
     sp -= (len + 1);
     envp_end = sp;
@@ -463,7 +413,6 @@ int main(int argc, char *argv[], char *envp[])
     memcpy(sp, "ENVVAR=1", len + 1);
     envp_start = sp;
 
-    // push args to stack
     for (i = argc - 1; i > 0; i--)
     {
         len = strnlen(argv[i], MAX_ARG_STRLEN);
@@ -475,7 +424,6 @@ int main(int argc, char *argv[], char *envp[])
         memcpy(sp, argv[i], len + 1);
     }
 
-    // assign the new handler for SIGSEGV
     memset(&sig, 0, sizeof(sig));
     sig.sa_flags = SA_SIGINFO | SA_RESTART;
     // sigemptyset(&sig.sa_mask);
